@@ -82,11 +82,11 @@ st.markdown("""
 
     /* 雷达图容器 */
     .radar-box {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        background: #ffffff;
         border-radius: 16px;
         padding: 24px;
         margin: 16px 0;
-        border: 1px solid rgba(148, 163, 184, 0.1);
+        border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
 
     /* 合规文案 */
@@ -123,7 +123,7 @@ st.markdown("""
 
     /* 维度卡片 */
     .dim-card {
-        background: rgba(255,255,255,0.05);
+        background: #ffffff;
         border-radius: 8px;
         padding: 12px;
         text-align: center;
@@ -313,7 +313,7 @@ def _status_badge(score: int) -> tuple:
 # ==================== UI 主体 ====================
 st.title("🐉 天火五维共振雷达")
 st.markdown("""
-<div style="color:#64748b;font-size:14px;margin-top:-10px;margin-bottom:20px;">
+<div style="color:#475569;font-size:14px;margin-top:-10px;margin-bottom:20px;">
 输入6位股票代码，查看五维分布雷达（公开数据可视化 · 零分数 · 零建议）
 </div>
 """, unsafe_allow_html=True)
@@ -365,7 +365,7 @@ if code:
                     with cols[idx]:
                         st.markdown(f"""
                         <div class="dim-card">
-                            <div style="font-size:13px;color:#94a3b8;margin-bottom:8px;">{dim}</div>
+                            <div style="font-size:13px;color:#475569;margin-bottom:8px;">{dim}</div>
                             <div style="font-size:24px;margin-bottom:4px;">{emoji}</div>
                             <div style="font-size:12px;color:{color};font-weight:600;">{status}</div>
                             <div style="margin-top:8px;background:#334155;border-radius:4px;height:6px;overflow:hidden;">
@@ -406,7 +406,7 @@ if code:
                 # 公众号引流（记忆库要求：公众号菜单挂链接）
                 st.markdown("---")
                 st.markdown("""
-                <div style="text-align:center;color:#64748b;font-size:14px;line-height:1.8;">
+                <div style="text-align:center;color:#475569;font-size:14px;line-height:1.8;">
                     📬 <b>关注公众号「天火同人2026」</b><br>
                     获取每日盘前信号、周期观点与免费雷达入口<br>
                     <span style="font-size:12px;">菜单栏点击「五维雷达」→ 输入股票代码即时查看</span>
