@@ -1,0 +1,23 @@
+{
+  "dimensions": {
+    "趋势动能": 29.5,
+    "资金质量": 14.0,
+    "估值安全": 0,
+    "基本面": 0,
+    "周期位置": 24.0
+  },
+  "name": "昆仑万维",
+  "ts_code": "300418.SZ",
+  "current_price": "411.41📅",
+  "industry": "",
+  "source": "8q",
+  "_raw_summary": {
+    "total": 50.0,
+    "rating": "减持",
+    "comprehensive_rating": "强烈买入",
+    "偏离度": NaN,
+    "目标价": "nan",
+    "2026E": -80.62,
+    "ROE": -11.603
+  }
+}
