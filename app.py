@@ -2,7 +2,7 @@
 天火五维共振雷达 - Streamlit Cloud 部署版
 合规要求：零分数显示 | 零买卖建议 | 强制风险提示
 作者: jack@ailobstermedia
-版本: 2026.06.12
+版本: 2026.06.13-fix
 """
 
 import streamlit as st
@@ -79,6 +79,7 @@ st.markdown("""
 <style>
     /* 隐藏所有Streamlit默认数值 */
     .stProgress > div > div > div > div { color: transparent !important; }
+    .stProgress > div > div > div { background-color: #e2e8f0 !important; }
 
     /* 雷达图容器 */
     .radar-box {
@@ -86,12 +87,13 @@ st.markdown("""
         border-radius: 16px;
         padding: 24px;
         margin: 16px 0;
-        border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
 
     /* 合规文案 */
     .compliance-box {
-        background-color: #fef3c7;
+        background-color: #fffbeb;
         border-left: 5px solid #f59e0b;
         padding: 16px;
         border-radius: 8px;
@@ -127,7 +129,8 @@ st.markdown("""
         border-radius: 8px;
         padding: 12px;
         text-align: center;
-        border: 1px solid rgba(148,163,184,0.1);
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
 
     .status-dot {
@@ -145,7 +148,7 @@ st.markdown("""
         font-size: 12px;
         margin-top: 40px;
         padding-top: 20px;
-        border-top: 1px solid rgba(148,163,184,0.1);
+        border-top: 1px solid #e2e8f0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -266,13 +269,13 @@ def _build_radar(dims: dict):
                 range=[0, 100],
                 showticklabels=False,      # 核心：隐藏径向刻度标签（零分数）
                 ticks='',                   # 无刻度线
-                gridcolor='rgba(148,163,184,0.15)',
+                gridcolor='#e2e8f0',
                 gridwidth=1
             ),
             angularaxis=dict(
-                tickfont=dict(size=13, color='#94a3b8'),
-                gridcolor='rgba(148,163,184,0.15)',
-                linecolor='rgba(148,163,184,0.2)'
+                tickfont=dict(size=13, color='#475569'),
+                gridcolor='#e2e8f0',
+                linecolor='#e2e8f0'
             ),
             bgcolor='rgba(0,0,0,0)'
         ),
@@ -347,7 +350,7 @@ if code:
                 st.markdown('<div class="radar-box">', unsafe_allow_html=True)
                 st.plotly_chart(
                     result['radar_chart'],
-                    use_container_width=True,
+                    width='stretch',
                     config={
                         'displayModeBar': False,
                         'displaylogo': False,
@@ -365,10 +368,10 @@ if code:
                     with cols[idx]:
                         st.markdown(f"""
                         <div class="dim-card">
-                            <div style="font-size:13px;color:#475569;margin-bottom:8px;">{dim}</div>
+                            <div style="font-size:13px;color:#475569;margin-bottom:8px;font-weight:500;">{dim}</div>
                             <div style="font-size:24px;margin-bottom:4px;">{emoji}</div>
                             <div style="font-size:12px;color:{color};font-weight:600;">{status}</div>
-                            <div style="margin-top:8px;background:#334155;border-radius:4px;height:6px;overflow:hidden;">
+                            <div style="margin-top:8px;background:#e2e8f0;border-radius:4px;height:6px;overflow:hidden;">
                                 <div style="background:{color};width:{score}%;height:100%;border-radius:4px;transition:width 0.5s;"></div>
                             </div>
                         </div>
