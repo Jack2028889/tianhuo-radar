@@ -1,9 +1,0 @@
-{
-  "update_time": "2026-06-13T21:42:26.708167",
-  "total": 103,
-  "success": 0,
-  "failed": 1,
-  "skipped": 102,
-  "scorer": "scorer_adapter.score_stock (8q→5d)",
-  "workers": 3
-}

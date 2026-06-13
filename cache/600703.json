@@ -1,23 +1,24 @@
 {
   "dimensions": {
-    "趋势动能": 14.0,
+    "趋势动能": 29.5,
     "资金质量": 0,
-    "估值安全": 0,
+    "估值安全": 15.0,
     "基本面": 0,
     "周期位置": 19.5
   },
   "name": "三安光电",
   "ts_code": "600703.SH",
-  "current_price": "13.92📅",
+  "current_price": "52.95📅",
   "industry": "",
   "source": "8q",
   "_raw_summary": {
-    "total": 12.5,
+    "total": 30.0,
     "rating": "清仓离场",
     "comprehensive_rating": "强烈买入",
     "偏离度": NaN,
     "目标价": "nan",
     "2026E": 0,
-    "ROE": -0.9845
+    "ROE": -0.9845,
+    "PE_TTM": NaN
   }
 }
