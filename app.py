@@ -2,7 +2,7 @@
 天火五维共振雷达 - Streamlit Cloud 部署版
 合规要求：零分数显示 | 零买卖建议 | 强制风险提示
 作者: jack@ailobstermedia
-版本: 2026.06.13-fix2
+版本: 2026.06.13-fix3
 """
 
 import streamlit as st
@@ -33,9 +33,8 @@ if PROJECT_ROOT:
         if p not in sys.path:
             sys.path.insert(0, p)
 
-# ==================== 环境变量读取（Streamlit Secrets）====================
+# ==================== 环境变量读取 ====================
 def get_secret(key: str, default: str = "") -> str:
-    """优先读取 Streamlit Secrets，其次环境变量"""
     try:
         return st.secrets.get(key, os.environ.get(key, default))
     except Exception:
@@ -54,13 +53,13 @@ _score_8q = None
 try:
     from score_md_stocks_deep import score_stock as _score_md
     MD_AVAILABLE = True
-except Exception as _e:
+except Exception:
     pass
 
 try:
     from single_stock_score import score_stock as _score_8q
     Q8_AVAILABLE = True
-except Exception as _e:
+except Exception:
     pass
 
 # ==================== 页面配置 ====================
@@ -75,17 +74,91 @@ st.set_page_config(
 st.markdown("""
 <style>
     .stProgress > div > div > div > div { color: transparent !important; }
-    .stProgress > div > div > div { background-color: #e2e8f0 !important; }
-
+    
+    /* 股票信息栏 */
+    .stock-info-bar {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin: 12px 0 20px 0;
+        border: 1px solid #bae6fd;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .stock-info-bar .stock-name {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0c4a6e;
+    }
+    .stock-info-bar .stock-meta {
+        font-size: 13px;
+        color: #0369a1;
+    }
+    .stock-info-bar .data-source {
+        font-size: 12px;
+        color: #64748b;
+        background: #ffffff;
+        padding: 4px 10px;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    /* 雷达图容器 */
     .radar-box {
         background: #ffffff;
         border-radius: 16px;
-        padding: 24px;
+        padding: 20px;
         margin: 16px 0;
         border: 1px solid #e2e8f0;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
-
+    
+    /* 五维卡片 */
+    .dim-card-outer {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 16px 8px;
+        text-align: center;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .dim-card-outer:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .dim-card-outer .dim-name {
+        font-size: 13px;
+        color: #475569;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    .dim-card-outer .dim-emoji {
+        font-size: 32px;
+        margin: 4px 0;
+    }
+    .dim-card-outer .dim-status {
+        font-size: 13px;
+        font-weight: 700;
+        margin: 6px 0 10px 0;
+    }
+    .dim-card-outer .dim-bar-bg {
+        background: #f1f5f9;
+        border-radius: 6px;
+        height: 8px;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+    .dim-card-outer .dim-bar-fill {
+        height: 100%;
+        border-radius: 6px;
+        transition: width 0.8s ease-out;
+    }
+    
+    /* 合规文案 */
     .compliance-box {
         background-color: #fffbeb;
         border-left: 5px solid #f59e0b;
@@ -96,7 +169,8 @@ st.markdown("""
         font-size: 14px;
         line-height: 1.6;
     }
-
+    
+    /* 星球CTA */
     .planet-cta {
         background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
         color: white;
@@ -106,7 +180,6 @@ st.markdown("""
         margin-top: 32px;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
     }
-
     .qr-placeholder {
         background: white;
         padding: 12px;
@@ -115,7 +188,8 @@ st.markdown("""
         margin-top: 12px;
         color: #1f2937;
     }
-
+    
+    /* 页脚 */
     .footer-text {
         text-align: center;
         color: #64748b;
@@ -253,11 +327,11 @@ def _demo_data(stock_code: str) -> dict:
 
 def _status_badge(score: int) -> tuple:
     if score >= 70:
-        return ("#22c55e", "积极", "🟢")
+        return ("#16a34a", "积极", "🟢")
     elif score >= 40:
-        return ("#eab308", "中性", "🟡")
+        return ("#ca8a04", "中性", "🟡")
     else:
-        return ("#ef4444", "谨慎", "🔴")
+        return ("#dc2626", "谨慎", "🔴")
 
 # ==================== UI 主体 ====================
 st.title("🐉 天火五维共振雷达")
@@ -277,8 +351,29 @@ if code:
                     st.error("未获取到评分数据")
                     st.stop()
 
+                # 演示模式提示
                 if result.get('_source') == 'demo':
                     st.warning("⚠️ 当前为演示模式，数据为模拟生成。")
+
+                # === 股票信息栏（填充红圈空白）===
+                name = result.get('name', clean)
+                ts_code = result.get('ts_code', f"{clean}.SZ")
+                industry = result.get('industry', '')
+                source_tag = "8问评分" if result.get('_source') == '8q' else "五维评分" if result.get('_source') == 'md' else "预计算缓存"
+                update_time = result.get('_meta', {}).get('update_time', datetime.now().strftime('%Y-%m-%d'))
+                
+                st.markdown(f"""
+                <div class="stock-info-bar">
+                    <div>
+                        <span class="stock-name">{name} ({ts_code})</span>
+                        <span class="stock-meta">　{industry}</span>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <span class="data-source">📡 {source_tag}</span>
+                        <span class="data-source">🕐 {update_time}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
                 # 雷达图
                 st.markdown('<div class="radar-box">', unsafe_allow_html=True)
@@ -289,19 +384,23 @@ if code:
                 )
                 st.markdown('</div>', unsafe_allow_html=True)
 
-                # 五维评估 - 使用原生组件确保在 columns 中可靠渲染
+                # === 五维评估卡片（带视觉设计）===
                 st.subheader("五维评估")
                 cols = st.columns(len(dims))
 
                 for idx, (dim, score) in enumerate(dims.items()):
                     color, status, emoji = _status_badge(score)
                     with cols[idx]:
-                        # 使用 st.container + 简化 HTML，避免多行字符串在 columns 中渲染失败
-                        with st.container():
-                            st.markdown(f"<p style='text-align:center;font-size:13px;color:#475569;font-weight:500;margin:0 0 4px 0;'>{dim}</p>", unsafe_allow_html=True)
-                            st.markdown(f"<h1 style='text-align:center;margin:0;font-size:28px;'>{emoji}</h1>", unsafe_allow_html=True)
-                            st.markdown(f"<p style='text-align:center;color:{color};font-weight:600;font-size:12px;margin:4px 0 8px 0;'>{status}</p>", unsafe_allow_html=True)
-                            st.progress(score / 100, text="")
+                        st.markdown(f"""
+                        <div class="dim-card-outer">
+                            <div class="dim-name">{dim}</div>
+                            <div class="dim-emoji">{emoji}</div>
+                            <div class="dim-status" style="color:{color};">{status}</div>
+                            <div class="dim-bar-bg">
+                                <div class="dim-bar-fill" style="background:{color};width:{score}%;"></div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
                 # 合规文案
                 st.markdown("""
