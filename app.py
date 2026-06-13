@@ -163,6 +163,10 @@ def get_score_result(stock_code: str, mode: str = "auto"):
             with open(cache_file, 'r', encoding='utf-8') as f:
                 cached = json.load(f)
                 cached["_source"] = "cache"
+                # 补充 radar_chart（缓存中已删除 plotly 对象，需动态重建）
+                dims = cached.get('dimensions') or {}
+                if dims and 'radar_chart' not in cached:
+                    cached['radar_chart'] = _build_radar(dims)
                 return cached
         except Exception:
             pass
