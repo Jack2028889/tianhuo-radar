@@ -2,7 +2,7 @@
 天火五维共振雷达 - Streamlit Cloud 部署版
 合规要求：零分数显示 | 零买卖建议 | 强制风险提示
 作者: jack@ailobstermedia
-版本: 2026.06.13-fix3
+版本: 2026.06.13-fix4
 """
 
 import streamlit as st
@@ -74,7 +74,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     .stProgress > div > div > div > div { color: transparent !important; }
-    
+
     /* 股票信息栏 */
     .stock-info-bar {
         background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
@@ -105,7 +105,7 @@ st.markdown("""
         border-radius: 20px;
         border: 1px solid #e2e8f0;
     }
-    
+
     /* 雷达图容器 */
     .radar-box {
         background: #ffffff;
@@ -115,7 +115,7 @@ st.markdown("""
         border: 1px solid #e2e8f0;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
-    
+
     /* 五维卡片 */
     .dim-card-outer {
         background: #ffffff;
@@ -157,7 +157,28 @@ st.markdown("""
         border-radius: 6px;
         transition: width 0.8s ease-out;
     }
-    
+
+    /* 未覆盖提示 */
+    .uncovered-box {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border-radius: 12px;
+        padding: 24px;
+        margin: 20px 0;
+        border: 1px solid #fecaca;
+        text-align: center;
+    }
+    .uncovered-box h3 {
+        color: #991b1b;
+        margin: 0 0 12px 0;
+        font-size: 18px;
+    }
+    .uncovered-box p {
+        color: #7f1d1d;
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 0;
+    }
+
     /* 合规文案 */
     .compliance-box {
         background-color: #fffbeb;
@@ -169,7 +190,7 @@ st.markdown("""
         font-size: 14px;
         line-height: 1.6;
     }
-    
+
     /* 星球CTA */
     .planet-cta {
         background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
@@ -188,7 +209,7 @@ st.markdown("""
         margin-top: 12px;
         color: #1f2937;
     }
-    
+
     /* 页脚 */
     .footer-text {
         text-align: center;
@@ -204,20 +225,47 @@ st.markdown("""
 # ==================== 缓存与数据层 ====================
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_score_result(stock_code: str, mode: str = "auto"):
+    """获取评分结果：优先预计算缓存 → 实时计算 → 未覆盖提示"""
+
     cache_dir = Path(__file__).parent / "cache"
     cache_file = cache_dir / f"{stock_code}.json"
+
+    # 1. 尝试读取预计算缓存（验证数据有效性）
     if cache_file.exists():
         try:
             with open(cache_file, 'r', encoding='utf-8') as f:
                 cached = json.load(f)
+
+            dims = cached.get('dimensions', {})
+            # 验证：dimensions 存在且至少有一个值 > 0
+            if dims and any(v > 0 for v in dims.values()):
                 cached["_source"] = "cache"
-                dims = cached.get('dimensions') or {}
-                if dims and 'radar_chart' not in cached:
+                if 'radar_chart' not in cached or cached['radar_chart'] is None:
                     cached['radar_chart'] = _build_radar(dims)
                 return cached
+            else:
+                # 缓存存在但数据无效（空 dimensions），删除旧缓存
+                cache_file.unlink()
         except Exception:
             pass
 
+    # 2. 缓存未命中/无效，尝试实时计算（Cloud 上可能可用）
+    try:
+        from scorer_adapter import score_stock as cloud_scorer
+        result = cloud_scorer(stock_code)
+        if result and result.get('dimensions') and any(v > 0 for v in result['dimensions'].values()):
+            # 保存到缓存，下次更快
+            result["_source"] = "realtime"
+            try:
+                with open(cache_file, 'w', encoding='utf-8') as f:
+                    json.dump(result, f, ensure_ascii=False, indent=2)
+            except:
+                pass
+            return result
+    except Exception:
+        pass
+
+    # 3. 本地模块实时计算（开发环境）
     if mode == "md" and MD_AVAILABLE:
         raw = _score_md(stock_code)
         return _standardize_result(raw, source="md")
@@ -232,7 +280,8 @@ def get_score_result(stock_code: str, mode: str = "auto"):
             raw = _score_8q(stock_code)
             return _adapt_8q(raw)
 
-    return _demo_data(stock_code)
+    # 4. 未覆盖提示（不显示模拟数据）
+    return _uncovered_data(stock_code)
 
 def _standardize_result(raw: dict, source: str = "md") -> dict:
     result = dict(raw) if isinstance(raw, dict) else {}
@@ -309,20 +358,21 @@ def _build_radar(dims: dict):
     )
     return fig
 
-def _demo_data(stock_code: str) -> dict:
-    random.seed(hash(stock_code) % 10000)
-    dims = {
-        "趋势动能": random.randint(35, 85),
-        "资金质量": random.randint(35, 85),
-        "估值安全": random.randint(35, 85),
-        "基本面": random.randint(35, 85),
-        "周期位置": random.randint(35, 85)
-    }
+def _uncovered_data(stock_code: str) -> dict:
+    """未覆盖股票：返回专业提示，不显示模拟数据"""
     return {
-        'dimensions': dims,
-        'radar_chart': _build_radar(dims),
-        '_source': 'demo',
-        '_notice': '当前为演示模式，请部署真实评分模块'
+        'dimensions': {
+            "趋势动能": 0,
+            "资金质量": 0,
+            "估值安全": 0,
+            "基本面": 0,
+            "周期位置": 0
+        },
+        'radar_chart': None,
+        '_source': 'uncovered',
+        '_notice': '该股票暂未纳入日常监控池',
+        'name': stock_code,
+        'ts_code': f"{stock_code}.SZ"
     }
 
 def _status_badge(score: int) -> tuple:
@@ -345,23 +395,60 @@ if code:
         with st.spinner("系统扫描中..."):
             try:
                 result = get_score_result(clean, mode="auto")
-                dims = result.get('dimensions', {})
+                source = result.get('_source', 'unknown')
 
-                if not dims:
-                    st.error("未获取到评分数据")
+                # === 未覆盖股票：显示专业提示 ===
+                if source == 'uncovered':
+                    st.markdown(f"""
+                    <div class="uncovered-box">
+                        <h3>📡 {clean} 暂未纳入日常监控池</h3>
+                        <p>
+                            天火系统每日盘后自动扫描 <b>龙一/龙二/观察梯队</b> 及 <b>沪深300核心标的</b>。<br>
+                            该股票当前不在预计算覆盖范围内。<br><br>
+                            🔍 <b>关注公众号「天火同人2026」</b>，获取每日监控池完整名单<br>
+                            🌍 <b>加入星球</b>，解锁任意股票实时8问评分与次日监控池
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # 仍然显示引流模块
+                    st.markdown("""
+                    <div class="planet-cta" style="margin-top:20px;">
+                        <h2 style="margin:0 0 8px 0;font-size:22px;">📡 天火同人·周期与信号日志</h2>
+                        <p style="margin:0 0 16px 0;opacity:0.9;font-size:14px;">
+                            每日盘后自动扫描全市场 | 五维共振 + 8问评分 + 周期定位
+                        </p>
+                        <div class="qr-placeholder">
+                            <p style="margin:0;font-weight:600;font-size:14px;">🌍 星球二维码占位</p>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown("---")
+                    st.markdown("""
+                    <div style="text-align:center;color:#475569;font-size:14px;line-height:1.8;">
+                        📬 <b>关注公众号「天火同人2026」</b><br>
+                        获取每日盘前信号、周期观点与免费雷达入口
+                    </div>
+                    """, unsafe_allow_html=True)
                     st.stop()
 
-                # 演示模式提示
-                if result.get('_source') == 'demo':
+                # === 正常数据展示 ===
+                dims = result.get('dimensions', {})
+                if not dims or not any(v > 0 for v in dims.values()):
+                    st.error("数据异常，请稍后重试")
+                    st.stop()
+
+                # 演示模式提示（仅本地开发时可能出现）
+                if source == 'demo':
                     st.warning("⚠️ 当前为演示模式，数据为模拟生成。")
 
-                # === 股票信息栏（填充红圈空白）===
+                # 股票信息栏
                 name = result.get('name', clean)
                 ts_code = result.get('ts_code', f"{clean}.SZ")
                 industry = result.get('industry', '')
-                source_tag = "8问评分" if result.get('_source') == '8q' else "五维评分" if result.get('_source') == 'md' else "预计算缓存"
-                update_time = result.get('_meta', {}).get('update_time', datetime.now().strftime('%Y-%m-%d'))
-                
+                source_label = {"cache": "预计算缓存", "8q": "8问评分", "md": "五维评分", "realtime": "实时计算"}.get(source, source)
+
                 st.markdown(f"""
                 <div class="stock-info-bar">
                     <div>
@@ -369,8 +456,8 @@ if code:
                         <span class="stock-meta">　{industry}</span>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;">
-                        <span class="data-source">📡 {source_tag}</span>
-                        <span class="data-source">🕐 {update_time}</span>
+                        <span class="data-source">📡 {source_label}</span>
+                        <span class="data-source">🕐 {datetime.now().strftime('%Y-%m-%d')}</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -384,7 +471,7 @@ if code:
                 )
                 st.markdown('</div>', unsafe_allow_html=True)
 
-                # === 五维评估卡片（带视觉设计）===
+                # 五维评估卡片
                 st.subheader("五维评估")
                 cols = st.columns(len(dims))
 
