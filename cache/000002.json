@@ -1,0 +1,23 @@
+{
+  "dimensions": {
+    "趋势动能": 5.0,
+    "资金质量": 23.8,
+    "估值安全": 0,
+    "基本面": 0,
+    "周期位置": 24.0
+  },
+  "name": "万科A",
+  "ts_code": "000002.SZ",
+  "current_price": "3.16📅",
+  "industry": "",
+  "source": "8q",
+  "_raw_summary": {
+    "total": 32.5,
+    "rating": "清仓离场",
+    "comprehensive_rating": "强烈买入",
+    "偏离度": NaN,
+    "目标价": "nan",
+    "2026E": -62.78,
+    "ROE": -55.422
+  }
+}
