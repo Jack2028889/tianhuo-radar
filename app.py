@@ -12,6 +12,8 @@ import json
 import random
 from pathlib import Path
 from datetime import datetime
+import textwrap
+import base64
 
 # ==================== 路径自适应 ====================
 POSSIBLE_ROOTS = [
@@ -375,6 +377,14 @@ def _uncovered_data(stock_code: str) -> dict:
         'ts_code': f"{stock_code}.SZ"
     }
 
+def _get_qr_base64(path: str = "planet_qr.png") -> str:
+    """自动读取本地二维码图片转 base64，无需手动粘贴字符串"""
+    try:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except Exception:
+        return ""
+
 def _status_badge(score: int) -> tuple:
     if score >= 70:
         return ("#16a34a", "积极", "🟢")
@@ -412,7 +422,7 @@ if code:
                     """, unsafe_allow_html=True)
 
                     # 仍然显示引流模块
-                    st.markdown("""
+                    st.markdown(textwrap.dedent("""
                     <div class="planet-cta" style="margin-top:20px;">
                         <h2 style="margin:0 0 8px 0;font-size:22px;">📡 天火同人·周期与信号日志</h2>
                         <p style="margin:0 0 16px 0;opacity:0.9;font-size:14px;">
@@ -422,7 +432,7 @@ if code:
                             <p style="margin:0;font-weight:600;font-size:14px;">🌍 星球二维码占位</p>
                         </div>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """), unsafe_allow_html=True)
 
                     st.markdown("---")
                     st.markdown("""
@@ -499,35 +509,33 @@ if code:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                qr_core_b64 = "粘贴Step2复制的base64字符串"
 
                 # 星球引流（直接引用本地图片文件）
-                st.markdown("""
-                <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); 
-                            color: white; padding: 28px; border-radius: 16px; text-align: center; 
-                            margin-top: 32px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);">
-                    <h2 style="margin:0 0 8px 0;font-size:22px;">📡 天火同人·周期信号日志</h2>
-                    <p style="margin:0 0 16px 0;opacity:0.9;font-size:14px;">
-                        每日盘后自动扫描全市场 | 五维共振 + 8问评分 + 周期定位
-                    </p>
-                    
-                    <!-- 白色卡片包裹二维码，隔离绿色冲突 -->
-                    <div style="background: white; padding: 16px; border-radius: 12px; 
-                                display: inline-block; margin: 12px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                        <img src="planet_qr.png" width="200" style="border-radius: 8px; display: block;" alt="星球二维码">
-                        <p style="margin: 8px 0 0 0; font-size: 13px; color: #374151; font-weight: 600;">
-                            微信扫码，加入星球
-                        </p>
-                        <p style="margin: 4px 0 0 0; font-size: 11px; color: #6b7280;">
-                            解锁完整决策包与次日监控池
-                        </p>
-                    </div>
-                    
-                    <p style="margin-top: 16px; font-size: 13px; opacity: 0.8;">
-                        👇 早鸟价 ¥199/年（原价¥365）· 7天体验期内自助退款
-                    </p>
+                # 星球引流
+                qr_b64 = _get_qr_base64()
+                st.markdown(textwrap.dedent(f"""
+                <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+                color: white; padding: 28px; border-radius: 16px; text-align: center;
+                margin-top: 32px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);">
+                <h2 style="margin:0 0 8px 0;font-size:22px;">📡 天火同人·周期信号日志</h2>
+                <p style="margin:0 0 16px 0;opacity:0.9;font-size:14px;">
+                每日盘后自动扫描全市场 | 五维共振 + 8问评分 + 周期定位
+                </p>
+                <div style="background: white; padding: 16px; border-radius: 12px;
+                display: inline-block; margin: 12px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                <img src="data:image/png;base64,{qr_b64}" width="200" style="border-radius: 8px; display: block;" alt="星球二维码">
+                <p style="margin: 8px 0 0 0; font-size: 13px; color: #374151; font-weight: 600;">
+                微信扫码，加入星球
+                </p>
+                <p style="margin: 4px 0 0 0; font-size: 11px; color: #6b7280;">
+                解锁完整决策包与次日监控池
+                </p>
                 </div>
-                """, unsafe_allow_html=True)
+                <p style="margin-top: 16px; font-size: 13px; opacity: 0.8;">
+                👇 早鸟价 ¥199/年（原价¥365）· 7天体验期内自助退款
+                </p>
+                </div>
+                """), unsafe_allow_html=True)
 
                 # 公众号引流
                 st.markdown("---")
