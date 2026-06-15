@@ -422,15 +422,29 @@ if code:
                     """, unsafe_allow_html=True)
 
                     # 仍然显示引流模块
-                    st.markdown(textwrap.dedent("""
-                    <div class="planet-cta" style="margin-top:20px;">
-                        <h2 style="margin:0 0 8px 0;font-size:22px;">📡 天火同人·周期与信号日志</h2>
-                        <p style="margin:0 0 16px 0;opacity:0.9;font-size:14px;">
-                            每日盘后自动扫描全市场 | 五维共振 + 8问评分 + 周期定位
-                        </p>
-                        <div class="qr-placeholder">
-                            <p style="margin:0;font-weight:600;font-size:14px;">🌍 星球二维码占位</p>
-                        </div>
+                    # 星球引流（直接引用本地图片文件）
+                    qr_b64 = _get_qr_base64()
+                    st.markdown(textwrap.dedent(f"""
+                    <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+                    color: white; padding: 28px; border-radius: 16px; text-align: center;
+                    margin-top: 32px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);">
+                    <h2 style="margin:0 0 8px 0;font-size:22px;">📡 天火同人·周期信号日志</h2>
+                    <p style="margin:0 0 16px 0;opacity:0.9;font-size:14px;">
+                    每日盘后自动扫描全市场 | 五维共振 + 8问评分 + 周期定位
+                    </p>
+                    <div style="background: white; padding: 16px; border-radius: 12px;
+                    display: inline-block; margin: 12px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                    <img src="data:image/png;base64,{qr_b64}" width="200" style="border-radius: 8px; display: block;" alt="星球二维码">
+                    <p style="margin: 8px 0 0 0; font-size: 13px; color: #374151; font-weight: 600;">
+                    微信扫码，加入星球
+                    </p>
+                    <p style="margin: 4px 0 0 0; font-size: 11px; color: #6b7280;">
+                    解锁完整决策包与次日监控池
+                    </p>
+                    </div>
+                    <p style="margin-top: 16px; font-size: 13px; opacity: 0.8;">
+                    👇 早鸟价 ¥199/年（原价¥365）· 7天体验期内自助退款
+                    </p>
                     </div>
                     """), unsafe_allow_html=True)
 
@@ -511,7 +525,6 @@ if code:
                 
 
                 # 星球引流（直接引用本地图片文件）
-                # 星球引流
                 qr_b64 = _get_qr_base64()
                 st.markdown(textwrap.dedent(f"""
                 <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
