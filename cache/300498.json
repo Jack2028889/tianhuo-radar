@@ -8,17 +8,17 @@
   },
   "name": "温氏股份",
   "ts_code": "300498.SZ",
-  "current_price": "12.93📅",
+  "current_price": "13.08📅",
   "industry": "",
   "source": "8q",
   "_raw_summary": {
     "total": 22.5,
     "rating": "清仓离场",
     "comprehensive_rating": "强烈买入",
-    "偏离度": 98.08,
-    "目标价": "673.37",
+    "偏离度": 98.07,
+    "目标价": "677.03",
     "2026E": -60.61,
     "ROE": 12.6859,
-    "PE_TTM": 2172.15
+    "PE_TTM": 2183.97
   }
 }
