@@ -49,7 +49,7 @@ def log_access(stock_code: str, source: str):
                 f"{supabase_url}/rest/v1/radar_logs",
                 headers={
                     "apikey": supabase_key,
-                    "Authorization": f"Bearer {supabase_key}",s
+                    "Authorization": f"Bearer {supabase_key}",
                     "Content-Type": "application/json",
                     "Prefer": "return=minimal"
                 },
