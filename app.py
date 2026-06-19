@@ -455,8 +455,9 @@ if code:
             try:
                 result = get_score_result(clean, mode="auto")
                 # 记录访问日志（仅管理者可见）
+                source = result.get('_source', 'unknown')                
                 log_access(clean, source)
-                source = result.get('_source', 'unknown')
+
 
                 # === 未覆盖股票：显示专业提示 ===
                 if source == 'uncovered':
