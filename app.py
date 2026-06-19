@@ -15,6 +15,55 @@ from datetime import datetime
 import textwrap
 import base64
 
+# ==================== 使用统计（仅管理者可见）====================
+import uuid
+from collections import Counter
+
+def get_client_id():
+    if "client_id" not in st.session_state:
+        st.session_state.client_id = str(uuid.uuid4())[:8]
+    return st.session_state.client_id
+
+def log_access(stock_code: str, source: str):
+    """记录访问日志：飞书群机器人 + Supabase（如配置）"""
+    client_id = get_client_id()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # 方案A：飞书群机器人（实时通知，零成本）
+    webhook = st.secrets.get("FEISHU_WEBHOOK_URL", "")
+    if webhook:
+        try:
+            requests.post(webhook, json={
+                "msg_type": "text",
+                "content": {"text": f"🐉 雷达查询\n股票：{stock_code}\n来源：{source}\n时间：{now_str}\n会话：{client_id}"}
+            }, timeout=3)
+        except Exception:
+            pass
+    
+    # 方案B：Supabase（结构化统计，见下文）
+    supabase_url = st.secrets.get("SUPABASE_URL", "")
+    supabase_key = st.secrets.get("SUPABASE_KEY", "")
+    if supabase_url and supabase_key:
+        try:
+            requests.post(
+                f"{supabase_url}/rest/v1/radar_logs",
+                headers={
+                    "apikey": supabase_key,
+                    "Authorization": f"Bearer {supabase_key}",s
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal"
+                },
+                json={
+                    "stock_code": stock_code,
+                    "source": source,
+                    "session_id": client_id,
+                    "accessed_at": datetime.utcnow().isoformat()
+                },
+                timeout=3
+            )
+        except Exception:
+            pass
+
 # ==================== 路径自适应 ====================
 POSSIBLE_ROOTS = [
     Path(__file__).parent.parent,
@@ -405,6 +454,8 @@ if code:
         with st.spinner("系统扫描中..."):
             try:
                 result = get_score_result(clean, mode="auto")
+                # 记录访问日志（仅管理者可见）
+                log_access(clean, source)
                 source = result.get('_source', 'unknown')
 
                 # === 未覆盖股票：显示专业提示 ===
@@ -565,6 +616,59 @@ if code:
                 st.info("提示：非交易时段部分数据可能缺失，或请检查股票代码是否正确。")
     else:
         st.warning("请输入6位数字股票代码（如 000001、300308、601899）")
+
+# ==================== 管理后台（仅管理者可见）====================
+st.markdown("---")
+with st.expander("🔒 管理后台"):
+    admin_pwd = st.text_input("管理密码", type="password", key="admin_pwd_input")
+    if admin_pwd == st.secrets.get("ADMIN_PASSWORD", "tianhuo2026"):
+        st.success("验证通过")
+        
+        supabase_url = st.secrets.get("SUPABASE_URL", "")
+        supabase_key = st.secrets.get("SUPABASE_KEY", "")
+        
+        if not supabase_url or not supabase_key:
+            st.info("未配置 Supabase，请查看飞书群历史消息获取访问记录。")
+        else:
+            try:
+                # 拉取今日数据
+                today = datetime.now().strftime("%Y-%m-%d")
+                resp = requests.get(
+                    f"{supabase_url}/rest/v1/radar_logs?select=*&accessed_at=gte.{today}T00:00:00",
+                    headers={"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"},
+                    timeout=5
+                )
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    sessions = set(r.get("session_id", "unknown") for r in data)
+                    stocks = [r.get("stock_code", "") for r in data]
+                    
+                    # 核心指标
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("📊 今日查询次数", len(data))
+                    c2.metric("👤 今日独立访客", len(sessions))
+                    c3.metric("🎯 查询股票种数", len(set(stocks)))
+                    
+                    # 热门股票 TOP5
+                    if stocks:
+                        st.subheader("🔥 今日热门股票")
+                        top5 = Counter(s for s in stocks if s).most_common(5)
+                        for code, count in top5:
+                            st.write(f"**{code}** — {count} 次")
+                    
+                    # 来源分布
+                    sources = [r.get("source", "unknown") for r in data]
+                    if sources:
+                        st.subheader("📡 数据来源分布")
+                        src_cnt = Counter(sources)
+                        st.bar_chart({k: v for k, v in src_cnt.items()})
+                else:
+                    st.error("拉取统计失败，请检查 Supabase 配置")
+            except Exception as e:
+                st.error(f"统计服务异常：{e}")
+    elif admin_pwd:
+        st.error("密码错误")
 
 st.markdown("""
 <div class="footer-text">
