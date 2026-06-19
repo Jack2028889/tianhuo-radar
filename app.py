@@ -2,7 +2,7 @@
 天火五维共振雷达 - Streamlit Cloud 部署版
 合规要求：零分数显示 | 零买卖建议 | 强制风险提示
 作者: jack@ailobstermedia
-版本: 2026.06.13-fix4
+版本: 2026.06.13-fix4  free pw
 """
 
 import streamlit as st
