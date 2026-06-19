@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import datetime
 import textwrap
 import base64
+import requests
 
 # ==================== 使用统计（仅管理者可见）====================
 import uuid
