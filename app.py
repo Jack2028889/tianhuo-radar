@@ -479,113 +479,19 @@ def _status_badge(score: int) -> tuple:
 
 # ==================== [新增] 增强版报告展示 ====================
 
-def show_enhanced_report(result: dict):
-    """
-    增强版报告展示：核心财务数据 + 资金流向 + 标签 + HTML下载
-    公域合规版本：展示公开财务数据，不直接给出买卖建议
-    """
-    # 从 result 提取数据（兼容多种字段名）
-    dims = result.get('dimensions', {})
-
-    # 尝试提取详细数据（如果底层 scorer 返回了）
-    profit = result.get('profit') or result.get('利润(亿)')
-    roe = result.get('roe') or result.get('ROE')
-    g26 = result.get('g26') or result.get('2026E')
-    target = result.get('target') or result.get('目标价(元)')
-    eps = result.get('eps') or result.get('EPS')
-    deviation = result.get('deviation') or result.get('偏离度(%)')
-    industry_flow = result.get('industry_flow') or result.get('行业净流入(亿)')
-    stock_flow = result.get('stock_flow') or result.get('主力净流入(万元)')
-    tags = result.get('tags', '')
-    current_price = result.get('current', '')
-
-    # 如果有详细数据，展示核心财务面板
-    has_finance = any(v is not None and v != '' and v != 'N/A' for v in [profit, roe, g26, target])
-
-    if has_finance:
-        st.markdown("---")
-        st.subheader("📊 核心财务数据")
-
-        cols = st.columns(6)
-        metrics = [
-            ("净利润", f"{profit}亿" if profit and str(profit) not in ['N/A', 'None', ''] else "N/A"),
-            ("ROE", f"{roe}%" if roe and str(roe) not in ['N/A', 'None', ''] else "N/A"),
-            ("2026E增速", f"{g26}%" if g26 and str(g26) not in ['N/A', 'None', ''] else "N/A"),
-            ("目标价", f"¥{target}" if target and str(target) not in ['N/A', 'None', ''] else "N/A"),
-            ("EPS", f"{eps}" if eps and str(eps) not in ['N/A', 'None', ''] else "N/A"),
-            ("偏离度", f"{deviation}%" if deviation and str(deviation) not in ['N/A', 'None', ''] else "N/A"),
-        ]
-        for col, (label, value) in zip(cols, metrics):
-            with col:
-                st.metric(label, value)
-
-    # 资金流向监测（如果有）
-    has_flow = (industry_flow is not None and str(industry_flow) not in ['N/A', 'None', '']) or                (stock_flow is not None and str(stock_flow) not in ['N/A', 'None', ''])
-
-    if has_flow:
-        st.markdown("---")
-        st.subheader("💰 资金流向监测")
-        f1, f2 = st.columns(2)
-        with f1:
-            if industry_flow is not None and str(industry_flow) not in ['N/A', 'None', '']:
-                try:
-                    fv = float(industry_flow)
-                    flow_val = f"+{fv:.2f}亿" if fv > 0 else f"{fv:.2f}亿"
-                except:
-                    flow_val = str(industry_flow)
-                st.metric("行业主力净流入", flow_val)
-            else:
-                st.metric("行业主力净流入", "N/A")
-        with f2:
-            if stock_flow is not None and str(stock_flow) not in ['N/A', 'None', '']:
-                try:
-                    fv = float(stock_flow)
-                    flow_val = f"+{fv:.0f}万" if fv > 0 else f"{fv:.0f}万"
-                except:
-                    flow_val = str(stock_flow)
-                st.metric("个股5日主力净流入", flow_val)
-            else:
-                st.metric("个股5日主力净流入", "N/A")
-
-    # 标签展示
-    if tags and str(tags) not in ['N/A', 'None', '']:
-        st.markdown("---")
-        st.subheader("🏷️ 标签")
-        tag_list = [t.strip() for t in str(tags).split(",") if t.strip()]
-        tag_html = " ".join([
-            f'<span class="tag-pill">{t}</span>' for t in tag_list
-        ])
-        st.markdown(f"<div style='margin-top:8px;'>{tag_html}</div>", unsafe_allow_html=True)
-
-    # === 私域钩子：下载完整HTML报告 ===
-    st.markdown("---")
-
-    try:
-        html_content = generate_html_for_streamlit(result)
-
-        st.download_button(
-            label="📥 下载完整评分报告（HTML）",
-            data=html_content,
-            file_name=f"{result.get('name','stock')}_天火评分.html",
-            mime="text/html",
-            help="包含十二维评分详情、资金流向、机构预测等完整数据",
-            use_container_width=True
-        )
-        st.caption("💡 提示：加入星球可获取每日监控池与实时8问评分")
-    except Exception as e:
-        st.info("完整报告下载功能开发中...")
+v
 
 
 def generate_html_for_streamlit(data: dict) -> str:
-    """生成可下载的单文件HTML报告（精简版，适配Streamlit Cloud，零外部依赖）"""
-
-    name = data.get('name', '未知')
+    """生成可下载的单文件HTML报告（兼容缺失字段）"""
+    
+    name = data.get('name', data.get('ts_code', '未知'))
     code = data.get('ts_code', '')
     current = data.get('current', '')
     rating = data.get('rating', '')
     total = data.get('total', 0)
     industry = data.get('industry', '') or data.get('申万行业', '')
-
+    
     # 五维
     dims = data.get('dimensions', {})
     fundamental = min(dims.get("基本面", 0) + dims.get("赛道", 0) + dims.get("护城河", 0), 100)
@@ -593,8 +499,8 @@ def generate_html_for_streamlit(data: dict) -> str:
     fund = min(dims.get("资金质量", 0) + dims.get("流量", 0) + dims.get("流向", 0), 100)
     value = min(dims.get("估值安全", 0) + dims.get("价位买点", 0) + dims.get("消息面", 0), 100)
     cycle = min(dims.get("周期位置", 0) + dims.get("大盘加分", 0), 100)
-
-    # 财务
+    
+    # 财务（兼容缺失）
     profit = data.get('profit') or data.get('利润(亿)', 'N/A')
     roe = data.get('roe') or data.get('ROE', 'N/A')
     g26 = data.get('g26') or data.get('2026E', 'N/A')
@@ -604,14 +510,14 @@ def generate_html_for_streamlit(data: dict) -> str:
     industry_flow = data.get('industry_flow') or data.get('行业净流入(亿)', 'N/A')
     stock_flow = data.get('stock_flow') or data.get('主力净流入(万元)', 'N/A')
     tags = data.get('tags', '')
-
+    
     # 标签HTML
     tags_html = ""
     if tags and str(tags) not in ['N/A', 'None', '']:
         for t in str(tags).split(","):
             if t.strip():
                 tags_html += f'<span class="tg">{t.strip()}</span>'
-
+    
     # 评级颜色
     rating_color = "#e74c3c"
     if rating == "增持":
@@ -620,7 +526,22 @@ def generate_html_for_streamlit(data: dict) -> str:
         rating_color = "#f39c12"
     elif rating in ["减持", "清仓离场"]:
         rating_color = "#95a5a6"
-
+    
+    # 财务数据行（有则显示，无则隐藏）
+    finance_row = ""
+    if str(profit) not in ['N/A', 'None', ''] or str(roe) not in ['N/A', 'None', '']:
+        finance_row = f'<div class="card"><div class="card-title">核心财务</div><div class="grid-3"><div class="item"><div class="item-l">净利润</div><div class="item-v">{profit}亿</div></div><div class="item"><div class="item-l">ROE</div><div class="item-v">{roe}%</div></div><div class="item"><div class="item-l">2026E增速</div><div class="item-v">{g26}%</div></div></div></div>'
+    
+    # 资金流向行
+    flow_row = ""
+    if str(industry_flow) not in ['N/A', 'None', ''] or str(stock_flow) not in ['N/A', 'None', '']:
+        flow_row = f'<div class="card"><div class="card-title">资金流向</div><div class="grid-2"><div class="item"><div class="item-l">行业主力净流入</div><div class="item-v">{industry_flow}亿</div></div><div class="item"><div class="item-l">个股5日主力净流入</div><div class="item-v">{stock_flow}万</div></div></div></div>'
+    
+    # 标签行
+    tags_row = ""
+    if tags_html:
+        tags_row = f'<div class="card"><div class="card-title">标签</div><div>{tags_html}</div></div>'
+    
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -648,12 +569,12 @@ h1{{margin:0;font-size:24px}}.code{{opacity:0.7;font-size:13px;margin-top:4px}}
 <div class="header"><h1>{name}</h1><div class="code">{code}　当前价 ¥{current}</div><div class="rating">{rating}</div>
 <div class="stats"><div><div class="stat-v">{total}</div><div class="stat-l">综合评分</div></div><div><div class="stat-v">{roe}%</div><div class="stat-l">ROE</div></div><div><div class="stat-v">{g26}%</div><div class="stat-l">2026E</div></div><div><div class="stat-v">{target}</div><div class="stat-l">目标价</div></div></div></div>
 <div class="card"><div class="card-title">五维评估</div><div class="grid-3"><div class="item"><div class="item-l">基本面</div><div class="item-v">{fundamental}</div></div><div class="item"><div class="item-l">趋势动能</div><div class="item-v">{trend}</div></div><div class="item"><div class="item-l">资金质量</div><div class="item-v">{fund}</div></div><div class="item"><div class="item-l">估值安全</div><div class="item-v">{value}</div></div><div class="item"><div class="item-l">周期位置</div><div class="item-v">{cycle}</div></div></div></div>
-<div class="card"><div class="card-title">核心财务</div><div class="grid-3"><div class="item"><div class="item-l">净利润</div><div class="item-v">{profit}亿</div></div><div class="item"><div class="item-l">ROE</div><div class="item-v">{roe}%</div></div><div class="item"><div class="item-l">2026E增速</div><div class="item-v">{g26}%</div></div></div></div>
-<div class="card"><div class="card-title">资金流向</div><div class="grid-2"><div class="item"><div class="item-l">行业主力净流入</div><div class="item-v">{industry_flow}亿</div></div><div class="item"><div class="item-l">个股5日主力净流入</div><div class="item-v">{stock_flow}万</div></div></div></div>
-<div class="card"><div class="card-title">标签</div><div>{tags_html}</div></div>
+{finance_row}
+{flow_row}
+{tags_row}
 <div class="disclaimer"><strong>⚠️ 不构成投资建议</strong><br>本报告仅展示公开数据可视化，所有决策需由投资者独立判断。完整12维评分与次日监控池仅限星球会员。</div>
 </div></body></html>"""
-
+    
     return html
 
 
