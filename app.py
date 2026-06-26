@@ -3,7 +3,7 @@
 合规要求：零分数显示 | 零买卖建议 | 强制风险提示
 增强版：核心财务数据 + 资金流向 + 标签 + HTML报告下载
 作者: jack@ailobstermedia
-版本: 2026.06.26-enhanced
+版本: 2026.06.26-enhanced  1
 """
 
 import streamlit as st
