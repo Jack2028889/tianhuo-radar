@@ -1,0 +1,9 @@
+{
+  "update_time": "2026-06-28T07:30:49.505396",
+  "total": 106,
+  "success": 105,
+  "failed": 1,
+  "skipped": 0,
+  "workers": 2,
+  "mode": "fast_enhanced"
+}
