@@ -477,57 +477,108 @@ def _status_badge(score: int) -> tuple:
         return ("#dc2626", "谨慎", "🔴")
 
 
-# ==================== [新增] 增强版报告展示 ====================
+# ==================== [新增] 统一数据提取（支持 _raw_summary 回退）====================
+
+def _extract_value(result: dict, key: str, default=None, raw_key: str = None):
+    """
+    统一数据提取：优先 _raw_summary → 顶层字段 → 兼容字段 → 默认值
+    """
+    raw = result.get('_raw_summary', {})
+    raw_key = raw_key or key
+    
+    # 1. 优先 _raw_summary
+    if raw_key in raw and raw[raw_key] is not None and raw[raw_key] != '':
+        return raw[raw_key]
+    
+    # 2. 顶层字段
+    if key in result and result[key] is not None and result[key] != '':
+        return result[key]
+    
+    # 3. 兼容字段名
+    aliases = {
+        'profit': ['利润(亿)', 'profit', '净利润'],
+        'roe': ['ROE', 'roe', '净资产收益率'],
+        'g26': ['2026E', 'g26', '2026E增速'],
+        'target': ['目标价(元)', 'target', '目标价'],
+        'eps': ['eps', 'EPS'],
+        'deviation': ['偏离度(%)', 'deviation', '偏离度'],
+        'industry_flow': ['行业净流入(亿)', 'industry_flow'],
+        'stock_flow': ['主力净流入(万元)', 'stock_flow', 'net_inflow_5d'],
+        'current': ['current', 'current_price', 'price'],
+        'rating': ['rating', '综合评级'],
+        'total': ['total', 'score', '综合评分'],
+        'comprehensive_rating': ['comprehensive_rating', '机构评级'],
+    }
+    for alt in aliases.get(key, []):
+        if alt in result and result[alt] is not None and result[alt] != '':
+            return result[alt]
+        if alt in raw and raw[alt] is not None and raw[alt] != '':
+            return raw[alt]
+    
+    return default
+
+
+# ==================== [修复] 增强版报告展示 ====================
 
 def show_enhanced_report(result: dict):
     """
     增强版报告展示：核心财务数据 + 资金流向 + 标签 + HTML下载
-    公域合规版本：展示公开财务数据，不直接给出买卖建议
+    修复：支持 _raw_summary 数据回退
     """
-    # 从 result 提取数据（兼容多种字段名）
-    dims = result.get('dimensions', {})
-
-    # 尝试提取详细数据（如果底层 scorer 返回了）
-    profit = result.get('profit') or result.get('利润(亿)')
-    roe = result.get('roe') or result.get('ROE')
-    g26 = result.get('g26') or result.get('2026E')
-    target = result.get('target') or result.get('目标价(元)')
-    eps = result.get('eps') or result.get('EPS')
-    deviation = result.get('deviation') or result.get('偏离度(%)')
-    industry_flow = result.get('industry_flow') or result.get('行业净流入(亿)')
-    stock_flow = result.get('stock_flow') or result.get('主力净流入(万元)')
+    # 统一提取数据
+    name = result.get('name', '未知')
+    code = result.get('ts_code', '')
+    current = _extract_value(result, 'current', '')
+    # 清理 current_price 中的 emoji
+    if isinstance(current, str):
+        current = current.replace('📅', '').replace('⚡', '').strip()
+    
+    rating = _extract_value(result, 'rating', '')
+    total = _extract_value(result, 'total', 0)
+    comprehensive_rating = _extract_value(result, 'comprehensive_rating', '')
+    
+    profit = _extract_value(result, 'profit')
+    roe = _extract_value(result, 'roe')
+    g26 = _extract_value(result, 'g26')
+    target = _extract_value(result, 'target')
+    eps = _extract_value(result, 'eps')
+    deviation = _extract_value(result, 'deviation')
+    
+    industry_flow = _extract_value(result, 'industry_flow')
+    stock_flow = _extract_value(result, 'stock_flow')
     tags = result.get('tags', '')
-    current_price = result.get('current', '')
-
-    # 如果有详细数据，展示核心财务面板
+    
+    # 五维
+    dims = result.get('dimensions', {})
+    
+    # === 核心财务数据 ===
     has_finance = any(v is not None and v != '' and v != 'N/A' for v in [profit, roe, g26, target])
-
+    
     if has_finance:
         st.markdown("---")
         st.subheader("📊 核心财务数据")
-
+        
         cols = st.columns(6)
         metrics = [
-            ("净利润", f"{profit}亿" if profit and str(profit) not in ['N/A', 'None', ''] else "N/A"),
-            ("ROE", f"{roe}%" if roe and str(roe) not in ['N/A', 'None', ''] else "N/A"),
-            ("2026E增速", f"{g26}%" if g26 and str(g26) not in ['N/A', 'None', ''] else "N/A"),
-            ("目标价", f"¥{target}" if target and str(target) not in ['N/A', 'None', ''] else "N/A"),
-            ("EPS", f"{eps}" if eps and str(eps) not in ['N/A', 'None', ''] else "N/A"),
-            ("偏离度", f"{deviation}%" if deviation and str(deviation) not in ['N/A', 'None', ''] else "N/A"),
+            ("净利润", f"{profit}亿" if profit is not None else "N/A"),
+            ("ROE", f"{roe}%" if roe is not None else "N/A"),
+            ("2026E增速", f"{g26}%" if g26 is not None else "N/A"),
+            ("目标价", f"¥{target}" if target is not None else "N/A"),
+            ("EPS", f"{eps}" if eps is not None else "N/A"),
+            ("偏离度", f"{deviation}%" if deviation is not None else "N/A"),
         ]
         for col, (label, value) in zip(cols, metrics):
             with col:
                 st.metric(label, value)
-
-    # 资金流向监测（如果有）
-    has_flow = (industry_flow is not None and str(industry_flow) not in ['N/A', 'None', '']) or                (stock_flow is not None and str(stock_flow) not in ['N/A', 'None', ''])
-
+    
+    # === 资金流向 ===
+    has_flow = industry_flow is not None or stock_flow is not None
     if has_flow:
         st.markdown("---")
         st.subheader("💰 资金流向监测")
         f1, f2 = st.columns(2)
         with f1:
-            if industry_flow is not None and str(industry_flow) not in ['N/A', 'None', '']:
+            if industry_flow is not None:
                 try:
                     fv = float(industry_flow)
                     flow_val = f"+{fv:.2f}亿" if fv > 0 else f"{fv:.2f}亿"
@@ -537,7 +588,7 @@ def show_enhanced_report(result: dict):
             else:
                 st.metric("行业主力净流入", "N/A")
         with f2:
-            if stock_flow is not None and str(stock_flow) not in ['N/A', 'None', '']:
+            if stock_flow is not None:
                 try:
                     fv = float(stock_flow)
                     flow_val = f"+{fv:.0f}万" if fv > 0 else f"{fv:.0f}万"
@@ -546,45 +597,52 @@ def show_enhanced_report(result: dict):
                 st.metric("个股5日主力净流入", flow_val)
             else:
                 st.metric("个股5日主力净流入", "N/A")
-
-    # 标签展示
+    
+    # === 标签 ===
     if tags and str(tags) not in ['N/A', 'None', '']:
         st.markdown("---")
         st.subheader("🏷️ 标签")
         tag_list = [t.strip() for t in str(tags).split(",") if t.strip()]
-        tag_html = " ".join([
-            f'<span class="tag-pill">{t}</span>' for t in tag_list
-        ])
+        tag_html = " ".join([f'<span class="tag-pill">{t}</span>' for t in tag_list])
         st.markdown(f"<div style='margin-top:8px;'>{tag_html}</div>", unsafe_allow_html=True)
-
-    # === 私域钩子：下载完整HTML报告 ===
+    
+    # === 下载完整HTML报告 ===
     st.markdown("---")
-
+    
     try:
         html_content = generate_html_for_streamlit(result)
-
+        
+        file_name = f"{name}_天火评分.html"
+        file_name = file_name.replace('/', '_').replace('\\', '_')
+        
         st.download_button(
             label="📥 下载完整评分报告（HTML）",
             data=html_content,
-            file_name=f"{result.get('name','stock')}_天火评分.html",
+            file_name=file_name,
             mime="text/html",
-            help="包含十二维评分详情、资金流向、机构预测等完整数据",
+            help="包含五维雷达图、十二维评分、财务数据、资金流向等完整报告",
             use_container_width=True
         )
         st.caption("💡 提示：加入星球可获取每日监控池与实时8问评分")
     except Exception as e:
-        st.info("完整报告下载功能开发中...")
+        st.error(f"报告生成失败: {e}")
 
+
+# ==================== [修复] 完整HTML报告生成器 ====================
 
 def generate_html_for_streamlit(data: dict) -> str:
-    """生成可下载的单文件HTML报告（兼容缺失字段）"""
+    """生成完整的单文件HTML报告（支持 _raw_summary 回退）"""
     
-    name = data.get('name', data.get('ts_code', '未知'))
+    # 统一提取数据
+    name = data.get('name', '未知')
     code = data.get('ts_code', '')
-    current = data.get('current', '')
-    rating = data.get('rating', '')
-    total = data.get('total', 0)
-    industry = data.get('industry', '') or data.get('申万行业', '')
+    current = _extract_value(data, 'current', '')
+    if isinstance(current, str):
+        current = current.replace('📅', '').replace('⚡', '').strip()
+    
+    rating = _extract_value(data, 'rating', '')
+    total = _extract_value(data, 'total', 0)
+    comprehensive_rating = _extract_value(data, 'comprehensive_rating', '')
     
     # 五维
     dims = data.get('dimensions', {})
@@ -594,16 +652,47 @@ def generate_html_for_streamlit(data: dict) -> str:
     value = min(dims.get("估值安全", 0) + dims.get("价位买点", 0) + dims.get("消息面", 0), 100)
     cycle = min(dims.get("周期位置", 0) + dims.get("大盘加分", 0), 100)
     
-    # 财务（兼容缺失）
-    profit = data.get('profit') or data.get('利润(亿)', 'N/A')
-    roe = data.get('roe') or data.get('ROE', 'N/A')
-    g26 = data.get('g26') or data.get('2026E', 'N/A')
-    target = data.get('target') or data.get('目标价(元)', 'N/A')
-    eps = data.get('eps') or data.get('EPS', 'N/A')
-    deviation = data.get('deviation') or data.get('偏离度(%)', 'N/A')
-    industry_flow = data.get('industry_flow') or data.get('行业净流入(亿)', 'N/A')
-    stock_flow = data.get('stock_flow') or data.get('主力净流入(万元)', 'N/A')
+    # 财务数据
+    profit = _extract_value(data, 'profit', 'N/A')
+    roe = _extract_value(data, 'roe', 'N/A')
+    g26 = _extract_value(data, 'g26', 'N/A')
+    target = _extract_value(data, 'target', 'N/A')
+    eps = _extract_value(data, 'eps', 'N/A')
+    deviation = _extract_value(data, 'deviation', 'N/A')
+    
+    # 资金流向
+    industry_flow = _extract_value(data, 'industry_flow', 'N/A')
+    stock_flow = _extract_value(data, 'stock_flow', 'N/A')
+    
+    # 标签
     tags = data.get('tags', '')
+    
+    # 十二维评分（从 result 或 _raw_summary 提取）
+    raw = data.get('_raw_summary', {})
+    score_items = []
+    score_cfg = [
+        ("赛道", data.get('赛道', raw.get('赛道', 0)), 40),
+        ("护城河", data.get('护城河', raw.get('护城河', 0)), 30),
+        ("业绩", data.get('业绩', raw.get('业绩', 0)), 30),
+        ("月线MACD", data.get('月线MACD', raw.get('月线MACD', 0)), 30),
+        ("结构突破", data.get('结构突破', raw.get('结构突破', 0)), 30),
+        ("关键位置", data.get('关键位置', raw.get('关键位置', 0)), 40),
+        ("流量", data.get('流量', raw.get('流量', 0)), 30),
+        ("流向", data.get('流向', raw.get('流向', 0)), 40),
+        ("流速", data.get('流速', raw.get('流速', 0)), 30),
+        ("价位买点", data.get('价位买点', raw.get('价位买点', 0)), 50),
+        ("消息面", data.get('消息面', raw.get('消息面', 0)), 30),
+    ]
+    
+    def _score_color(score, max_s):
+        pct = score / max_s if max_s > 0 else 0
+        if pct >= 0.7: return "#e74c3c"
+        elif pct >= 0.4: return "#f39c12"
+        else: return "#78909c"
+    
+    for name_s, score, max_s in score_cfg:
+        c = _score_color(score, max_s)
+        score_items.append(f'<div class="si"><div class="si-l"><div class="si-dot" style="background:{c}"></div><div class="si-n">{name_s}</div></div><div class="si-v" style="color:{c}">{score}/{max_s}</div></div>')
     
     # 标签HTML
     tags_html = ""
@@ -621,53 +710,86 @@ def generate_html_for_streamlit(data: dict) -> str:
     elif rating in ["减持", "清仓离场"]:
         rating_color = "#95a5a6"
     
-    # 财务数据行（有则显示，无则隐藏）
-    finance_row = ""
-    if str(profit) not in ['N/A', 'None', ''] or str(roe) not in ['N/A', 'None', '']:
-        finance_row = f'<div class="card"><div class="card-title">核心财务</div><div class="grid-3"><div class="item"><div class="item-l">净利润</div><div class="item-v">{profit}亿</div></div><div class="item"><div class="item-l">ROE</div><div class="item-v">{roe}%</div></div><div class="item"><div class="item-l">2026E增速</div><div class="item-v">{g26}%</div></div></div></div>'
+    # 资金流向样式
+    try:
+        ind_f = float(industry_flow) if industry_flow not in ['N/A', 'None', ''] else 0
+        ind_cls = "in" if ind_f > 0 else "out"
+        ind_display = f"{'+' if ind_f > 0 else ''}{ind_f:.2f}亿"
+    except:
+        ind_cls = "out"
+        ind_display = str(industry_flow)
     
-    # 资金流向行
-    flow_row = ""
-    if str(industry_flow) not in ['N/A', 'None', ''] or str(stock_flow) not in ['N/A', 'None', '']:
-        flow_row = f'<div class="card"><div class="card-title">资金流向</div><div class="grid-2"><div class="item"><div class="item-l">行业主力净流入</div><div class="item-v">{industry_flow}亿</div></div><div class="item"><div class="item-l">个股5日主力净流入</div><div class="item-v">{stock_flow}万</div></div></div></div>'
-    
-    # 标签行
-    tags_row = ""
-    if tags_html:
-        tags_row = f'<div class="card"><div class="card-title">标签</div><div>{tags_html}</div></div>'
+    try:
+        stk_f = float(stock_flow) if stock_flow not in ['N/A', 'None', ''] else 0
+        stk_cls = "in" if stk_f > 0 else "out"
+        stk_display = f"{'+' if stk_f > 0 else ''}{stk_f:.0f}万"
+    except:
+        stk_cls = "out"
+        stk_display = str(stock_flow)
     
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>天火评分 - {name}</title>
 <style>
-body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f7fa;padding:20px;margin:0;color:#333}}
-.container{{max-width:700px;margin:0 auto}}
-.header{{background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:16px;padding:24px;color:#fff;margin-bottom:16px}}
-h1{{margin:0;font-size:24px}}.code{{opacity:0.7;font-size:13px;margin-top:4px}}
-.rating{{display:inline-block;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-top:8px;background:{rating_color}}}
-.stats{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);text-align:center}}
-.stat-v{{font-size:16px;font-weight:700;color:#ffd700}}.stat-l{{font-size:11px;opacity:0.6;margin-top:2px}}
-.card{{background:#fff;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.04)}}
-.card-title{{font-size:16px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:6px}}
-.card-title::before{{content:"";width:3px;height:16px;background:#e74c3c;border-radius:2px}}
-.grid-3{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}}
-.grid-2{{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}}
-.item{{background:#f8f9fa;border-radius:10px;padding:12px;text-align:center}}
-.item-l{{font-size:11px;color:#78909c;margin-bottom:4px}}
-.item-v{{font-size:16px;font-weight:700;color:#2c3e50}}
-.tg{{display:inline-block;background:linear-gradient(135deg,#ffebee,#ffcdd2);color:#c62828;padding:3px 10px;border-radius:20px;font-size:12px;margin:4px}}
-.disclaimer{{background:#fff8e1;border:1px solid #ffe0b2;border-radius:12px;padding:14px;margin-top:16px;color:#92400e;font-size:12px;line-height:1.6}}
-@media(max-width:600px){{.grid-3,.grid-2{{grid-template-columns:1fr}}.stats{{grid-template-columns:repeat(2,1fr)}}}}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:linear-gradient(135deg,#f5f7fa 0%,#e4e8ec 100%);min-height:100vh;padding:20px;color:#333}
+.container{max-width:800px;margin:0 auto}
+.header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);border-radius:16px;padding:24px;color:#fff;margin-bottom:16px;box-shadow:0 10px 40px rgba(0,0,0,0.15)}
+.header-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+.header-top h1{margin:0;font-size:24px}
+.code{opacity:0.7;font-size:13px;margin-top:4px;font-family:monospace}
+.industry{display:inline-block;background:rgba(255,255,255,0.15);padding:4px 12px;border-radius:20px;font-size:12px;margin-top:8px}
+.rating-badge{display:inline-block;padding:6px 16px;border-radius:20px;font-size:14px;font-weight:600;margin-top:8px}
+.rating-strong{background:#e74c3c}.rating-add{background:#e67e22}.rating-neutral{background:#f39c12}.rating-reduce{background:#95a5a6;color:#333}.rating-sell{background:#7f8c8d}
+.price-box{text-align:right}
+.price{font-size:32px;font-weight:700;color:#ff6b6b}
+.price-label{font-size:12px;opacity:0.6}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1)}
+.stat-item{text-align:center}
+.stat-value{font-size:16px;font-weight:700;color:#ffd700}
+.stat-label{font-size:11px;opacity:0.6;margin-top:2px}
+.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+.card-title{font-size:16px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.card-title::before{content:"";width:3px;height:16px;background:#e74c3c;border-radius:2px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.item{background:#f8f9fa;border-radius:10px;padding:12px;text-align:center}
+.item-label{font-size:11px;color:#78909c;margin-bottom:4px}
+.item-value{font-size:16px;font-weight:700;color:#2c3e50}
+.item-sub{font-size:10px;color:#90a4ae;margin-top:2px}
+.tag-pill{display:inline-block;background:linear-gradient(135deg,#ffebee 0%,#ffcdd2 100%);color:#c62828;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;margin:4px}
+.flow-card{background:#f8f9fa;border-radius:12px;padding:18px;position:relative;overflow:hidden}
+.flow-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
+.flow-card.in::before{background:#e74c3c}.flow-card.out::before{background:#27ae60}
+.flow-title{font-size:12px;color:#78909c;margin-bottom:6px}
+.flow-amount{font-size:22px;font-weight:700}
+.flow-amount.in{color:#e74c3c}.flow-amount.out{color:#27ae60}
+.flow-note{font-size:10px;color:#90a4ae;margin-top:3px}
+.score-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.score-item{display:flex;align-items:center;justify-content:space-between;padding:10px;background:#f8f9fa;border-radius:10px}
+.score-left{display:flex;align-items:center;gap:8px}
+.score-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.score-name{font-size:13px;font-weight:500}
+.score-value{font-size:14px;font-weight:700;font-family:monospace}
+.disclaimer{background:#fff8e1;border:1px solid #ffe0b2;border-radius:12px;padding:14px;margin-top:16px;color:#92400e;font-size:12px;line-height:1.6}
+@media(max-width:600px){.grid-3,.grid-2{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
 </style></head><body><div class="container">
-<div class="header"><h1>{name}</h1><div class="code">{code}　当前价 ¥{current}</div><div class="rating">{rating}</div>
-<div class="stats"><div><div class="stat-v">{total}</div><div class="stat-l">综合评分</div></div><div><div class="stat-v">{roe}%</div><div class="stat-l">ROE</div></div><div><div class="stat-v">{g26}%</div><div class="stat-l">2026E</div></div><div><div class="stat-v">{target}</div><div class="stat-l">目标价</div></div></div></div>
-<div class="card"><div class="card-title">五维评估</div><div class="grid-3"><div class="item"><div class="item-l">基本面</div><div class="item-v">{fundamental}</div></div><div class="item"><div class="item-l">趋势动能</div><div class="item-v">{trend}</div></div><div class="item"><div class="item-l">资金质量</div><div class="item-v">{fund}</div></div><div class="item"><div class="item-l">估值安全</div><div class="item-v">{value}</div></div><div class="item"><div class="item-l">周期位置</div><div class="item-v">{cycle}</div></div></div></div>
-{finance_row}
-{flow_row}
-{tags_row}
-<div class="disclaimer"><strong>⚠️ 不构成投资建议</strong><br>本报告仅展示公开数据可视化，所有决策需由投资者独立判断。完整12维评分与次日监控池仅限星球会员。</div>
-</div></body></html>"""
+<div class="header"><div class="header-top"><div><h1>{name}</h1><div class="code">{code}</div><div class="industry">{data.get('industry','') or data.get('申万行业','')}</div><div class="rating-badge" style="background:{rating_color}">{rating}</div></div><div class="price-box"><div class="price">¥{current}</div><div class="price-label">当前价</div></div></div><div class="stats"><div class="stat-item"><div class="stat-value">{total}</div><div class="stat-label">综合评分</div></div><div class="stat-item"><div class="stat-value">{roe}%</div><div class="stat-label">ROE</div></div><div class="stat-item"><div class="stat-value">{g26}%</div><div class="stat-label">2026E</div></div><div class="stat-item"><div class="stat-value">{target}</div><div class="stat-label">目标价</div></div></div></div>
+<div class="card"><div class="card-title">五维共振雷达</div><div style="display:flex;justify-content:center;padding:10px"><canvas id="radar" width="400" height="350"></canvas></div><div class="grid-3"><div class="item"><div class="item-label">基本面</div><div class="item-value">{fundamental}</div></div><div class="item"><div class="item-label">趋势动能</div><div class="item-value">{trend}</div></div><div class="item"><div class="item-label">资金质量</div><div class="item-value">{fund}</div></div><div class="item"><div class="item-label">估值安全</div><div class="item-value">{value}</div></div><div class="item"><div class="item-label">周期位置</div><div class="item-value">{cycle}</div></div></div></div>
+<div class="card"><div class="card-title">十二维评分详情</div><div class="score-grid">{''.join(score_items)}</div></div>
+<div class="card"><div class="card-title">核心财务数据</div><div class="grid-3"><div class="item"><div class="item-label">净利润</div><div class="item-value">{profit}亿</div></div><div class="item"><div class="item-label">ROE</div><div class="item-value">{roe}%</div></div><div class="item"><div class="item-label">2026E增速</div><div class="item-value">{g26}%</div></div><div class="item"><div class="item-label">目标价</div><div class="item-value">{target}</div></div><div class="item"><div class="item-label">EPS</div><div class="item-value">{eps}</div></div><div class="item"><div class="item-label">偏离度</div><div class="item-value">{deviation}%</div></div></div><div style="margin-top:12px">{tags_html}</div></div>
+<div class="card"><div class="card-title">资金流向监测</div><div class="grid-2"><div class="flow-card {ind_cls}"><div class="flow-title">行业主力资金净流入</div><div class="flow-amount {ind_cls}">{ind_display}</div><div class="flow-note">{data.get('industry','') or data.get('申万行业','')}板块</div></div><div class="flow-card {stk_cls}"><div class="flow-title">个股5日主力净流入</div><div class="flow-amount {stk_cls}">{stk_display}</div><div class="flow-note">最近5个交易日</div></div></div></div>
+<div class="disclaimer"><strong>⚠️ 不构成投资建议</strong><br>本报告仅展示公开数据的多维度分布可视化，所有决策需由投资者独立判断。完整12维评分与次日监控池仅限星球会员。</div>
+</div><script>
+var c=document.getElementById("radar"),x=c.getContext("2d"),d=window.devicePixelRatio||1;
+c.width=400*d;c.height=350*d;x.scale(d,d);
+var cx=200,cy=170,r=120,ds=["基本面","趋势动能","资金质量","估值安全","周期位置"],sc=[{fundamental},{trend},{fund},{value},{cycle}],mx=100;
+for(var i=1;i<=5;i++){{x.beginPath();var ri=r/5*i;for(var j=0;j<5;j++){{var a=Math.PI*2/5*j-Math.PI/2,px=cx+ri*Math.cos(a),py=cy+ri*Math.sin(a);j==0?x.moveTo(px,py):x.lineTo(px,py)}}x.closePath();x.strokeStyle=i==5?"#ddd":"#eee";x.lineWidth=1;x.stroke()}}
+for(var i=0;i<5;i++){{var a=Math.PI*2/5*i-Math.PI/2;x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));x.strokeStyle="#ddd";x.stroke();var lr=r+25,lx=cx+lr*Math.cos(a),ly=cy+lr*Math.sin(a);x.font="13px sans-serif";x.fillStyle="#666";x.textAlign="center";x.textBaseline="middle";x.fillText(ds[i],lx,ly)}}
+x.beginPath();for(var i=0;i<5;i++){{var a=Math.PI*2/5*i-Math.PI/2,ri=sc[i]/mx*r,px=cx+ri*Math.cos(a),py=cy+ri*Math.sin(a);i==0?x.moveTo(px,py):x.lineTo(px,py)}}x.closePath();x.fillStyle="rgba(231,76,60,0.2)";x.fill();x.strokeStyle="#e74c3c";x.lineWidth=2;x.stroke();
+for(var i=0;i<5;i++){{var a=Math.PI*2/5*i-Math.PI/2,ri=sc[i]/mx*r,px=cx+ri*Math.cos(a),py=cy+ri*Math.sin(a);x.beginPath();x.arc(px,py,5,0,Math.PI*2);x.fillStyle="#e74c3c";x.fill();x.strokeStyle="#fff";x.lineWidth=2;x.stroke();x.font="bold 12px sans-serif";x.fillStyle="#e74c3c";x.textAlign="center";x.fillText(sc[i],px+18*Math.cos(a),py+18*Math.sin(a))}}
+</script></body></html>"""
     
     return html
 
