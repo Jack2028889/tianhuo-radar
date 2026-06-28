@@ -977,7 +977,7 @@ if code:
 st.markdown("---")
 with st.expander("🔒 管理后台"):
     admin_pwd = st.text_input("管理密码", type="password", key="admin_pwd_input")
-    if admin_pwd == st.secrets.get("ADMIN_PASSWORD", "tianhuo2026"):
+    if admin_pwd == st.secrets.get("ADMIN_PASSWORD", ""):
         st.success("验证通过")
 
         supabase_url = st.secrets.get("SUPABASE_URL", "")
