@@ -2,8 +2,8 @@
 # 生成时间: 2026-06-12
 
 # 核心框架
-streamlit==1.30.0
-plotly==5.18.0
+streamlit
+plotly
 
 # 数据处理
 pandas>=2.0.0
@@ -15,7 +15,7 @@ tushare>=1.2.89
 akshare>=1.11.0
 
 # 网络请求
-requests==2.31.0
+requests
 tqdm==4.66.1
 
 # 工具
